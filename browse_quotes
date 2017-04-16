@@ -5,7 +5,7 @@
 # Returns the cheapest quotes that meet this query. The prices come from skyscanner's cached prices resulting     #
 # from their users’ searches.                                                                                     #
 # usage:                                                                                                          #
-# 	~$ browse_quotes {country} {currency} {locale} {originPlace} {destinationPlace} {outboundPartialDate}         #
+# 	~$ ./browse_quotes {country} {currency} {locale} {originPlace} {destinationPlace} {outboundPartialDate}         #
 #   {inboundPartialDate*} {apiKey}                                                                                #
 #                                                                                                                 #
 ###################################################################################################################
@@ -43,7 +43,7 @@ if [ ! -d "./_data" ]; then
 fi
 cd ./_data &&
 
-# downloading json files
+# downloading json file
 parallel --jobs=0 --keep-order --delay $(( $(( (RANDOM %10)+1 ))/100 )) --eta --gnu curl -sL -o browsequotes_act.json {} ::: $link_a &&
 
 
