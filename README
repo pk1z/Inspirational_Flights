@@ -1,0 +1,8 @@
+This is a github repo of my Inspirational flights scripts.
+These were written on Ubuntu 16.04 64bit OS using R and BASH scripts
+
+Dependent tools should be installed prior to usage:
+  ~$ sudo add-apt-repository 'deb [arch=amd64,i386] https://cran.rstudio.com/bin/linux/ubuntu xenial/'
+  ~$ sudo apt-get update
+  ~$ sudo apt-get install parallel jq mawk sed coreutils python-pip r-base
+  ~$ sudo pip install csvkit

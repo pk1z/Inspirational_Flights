@@ -1,0 +1,126 @@
+#!/bin/bash
+
+###################################################################################################################
+#                                                                                                                 #
+# Returns the cheapest quotes that meet this query. The prices come from skyscanner's cached prices resulting     #
+# from their users’ searches.                                                                                     #
+# usage:                                                                                                          #
+# 	~$ browse_quotes {country} {currency} {locale} {originPlace} {destinationPlace} {outboundPartialDate}         #
+#   {inboundPartialDate*} {apiKey}                                                                                #
+#                                                                                                                 #
+###################################################################################################################
+
+
+# these arguments should be provided by the user of this bash script
+# register for apiKey here: http://portal.business.skyscanner.net/en-gb/accounts/login/
+
+country=$1
+currency=$2
+locale=$3
+originPlace=$4
+destinationPlace=$5
+outboundPartialDate=$6
+inboundPartialDate=$7
+apiKey=$8
+
+# it may work without apiKey argument in case of stored apiKey
+chrlenA=${#apiKey}
+case "$chrlenA" in
+	0) apiKey=$(grep -w "Insiprational_Flights" ~/Documents/creds.csv | cut -d "," -f3) ;;
+	esac 
+
+# composing download links with arguments
+# inboundPartialDate is optional, so it may work without inboundPartialDate argument in case of stored apiKey
+chrlenB=${#inboundPartialDate}
+case "$chrlenB" in
+	0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"?apiKey="$apiKey ;;
+	!0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"/"$inboundPartialDate"?apiKey="$apiKey
+	esac 	
+
+# creating a data folder 
+if [ ! -d "./_data" ]; then
+  mkdir ./_data
+fi
+cd ./_data &&
+
+# downloading json files
+parallel --jobs=0 --keep-order --delay $(( $(( (RANDOM %10)+1 ))/100 )) --eta --gnu curl -sL -o browsequotes_act.json {} ::: $link_a &&
+
+
+# creating Quotes level csv table from browsequotes_act.json
+jq '.Quotes[]? | {
+"QuoteId": (.QuoteId | tostring),
+"MinPrice": (.MinPrice | tostring),
+"Direct": (.Direct | tostring),
+"OutboundLegCarrierIds": (.OutboundLeg.CarrierIds[]? | tostring),
+"OutboundLegOriginId": (.OutboundLeg.OriginId | tostring),
+"OutboundLegDestinationId": (.OutboundLeg.DestinationId | tostring),
+"OutboundLegDepartureDate": .OutboundLeg.DepartureDate,
+"InboundLegCarrierIds": (.InboundLeg.CarrierIds[]? | tostring),
+"InboundLegOriginId": (.InboundLeg.OriginId | tostring),
+"InboundLegDestinationId": (.InboundLeg.DestinationId | tostring),
+"InboundLegDepartureDate": .InboundLeg.DepartureDate,
+"QuoteDateTime": .QuoteDateTime
+} | join("|")' browsequotes_act.json  > tmp.csv &&
+awk '!v[$1]++' tmp.csv > quotes.csv &&
+sed -i 's/|/"|"/g' quotes.csv &&
+sed -i 's/|/,/g' quotes.csv &&
+sed -i 1i'"QuoteId","MinPrice","Direct","OutboundLegCarrierIds","OutboundLegOriginId","OutboundLegDestinationId","OutboundLegDepartureDate","InboundLegCarrierIds","InboundLegOriginId","InboundLegDestinationId","InboundLegDepartureDate","QuoteDateTime"' quotes.csv &&
+rm -f tmp.csv &&
+
+# creating Places level csv table from browsequotes_act.json
+jq '.Places[]? | {
+"PlaceId": (.PlaceId | tostring),
+"PlaceIataCode": .IataCode,
+"PlaceName": .Name,
+"PlaceType": .Type
+} | join("|")' browsequotes_act.json  > tmp.csv &&
+awk '!v[$1]++' tmp.csv > places.csv &&
+sed -i 's/|/"|"/g' places.csv &&
+sed -i 's/|/,/g' places.csv &&
+sed -i 1i'"PlaceId","PlaceIataCode","PlaceName","PlaceType"' places.csv &&
+rm -f tmp.csv &&
+
+# creating Carriers level csv table from browsequotes_act.json
+jq '.Carriers[]? | {
+"CarrierId": (.CarrierId | tostring),
+"CarrierName": .Name
+} | join("|")' browsequotes_act.json  > tmp.csv &&
+awk '!v[$1]++' tmp.csv > carriers.csv &&
+sed -i 's/|/"|"/g' carriers.csv &&
+sed -i 's/|/,/g' carriers.csv &&
+sed -i 1i'"CarrierId","CarrierName"' carriers.csv &&
+rm -f tmp.csv &&
+
+# creating Currencies level csv table from browsequotes_act.json
+jq '.Currencies[]? | {
+"CurrencyCode": .Code,
+"CurrencySymbol": .Symbol
+} | join("|")' browsequotes_act.json  > tmp.csv &&
+awk '!v[$1]++' tmp.csv > currencies.csv &&
+sed -i 's/|/"|"/g' currencies.csv &&
+sed -i 's/|/,/g' currencies.csv &&
+sed -i 1i'"CurrencyCode","CurrencySymbol","CurrencyThousandsSeparator","CurrencyDecimalSeparator","CurrencySymbolOnLeft","CurrencySpaceBetweenAmountAndSymbol","CurrencyRoundingCoefficient","CurrencyDecimalDigits"' currencies.csv &&
+rm -f tmp.csv &&
+
+# let us join together the parts
+csvjoin -d, -u 1 -c "OutboundLegOriginId, PlaceId" --left quotes.csv places.csv > tmp.csv &&
+sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType/' tmp.csv &&
+csvjoin -d, -u 1 -c "InboundLegOriginId, PlaceId" --left tmp.csv places.csv > quotes.csv &&
+sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType/' quotes.csv &&
+csvjoin -d, -u 1 -c "OutboundLegCarrierIds, CarrierId" --left quotes.csv carriers.csv > tmp.csv &&
+sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType,OutboundCarrierName/' tmp.csv &&
+csvjoin -d, -u 1 -c "InboundLegCarrierIds, CarrierId" --left tmp.csv carriers.csv > quotes.csv &&
+sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType,OutboundCarrierName,InboundCarrierName/' quotes.csv
+
+
+# minden sorhoz hozzá kellene joinolni a valutanemet !!!!
+csvjoin -d, -u 1 -c --left tmp.csv currencies.csv > quotes.csv
+
+cat quotes.csv | csvlook
+
+
+rm -f tmp.csv places.csv subplaces.csv carriers.csv currencies.csv
+
+
+
