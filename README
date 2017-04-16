@@ -1,4 +1,8 @@
 This is a github repo of my Inspirational flights scripts.
+Based on these materials: 
+	http://en.business.skyscanner.net/documentation/
+	https://skyscanner.github.io/slate/#api-documentation
+
 These were written on Ubuntu 16.04 64bit OS using R and BASH scripts
 
 Dependent tools should be installed prior to usage:
