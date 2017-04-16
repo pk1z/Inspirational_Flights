@@ -1,30 +1,33 @@
 #!/bin/bash
 
+# It is a chunk!! #
+
 ###################################################################################################################
 #                                                                                                                 #
 # Returns the cheapest quotes that meet this query. The prices come from skyscanner's cached prices resulting     #
 # from their users’ searches.                                                                                     #
 # usage:                                                                                                          #
-# 	~$ ./browse_quotes {country} {currency} {locale} {originPlace} {destinationPlace} {outboundPartialDate}         #
+# 	~$ ./browse_quotes {country} {currency} {locale} {originPlace} {destinationPlace} {outboundPartialDate}       #
 #   {inboundPartialDate*} {apiKey}                                                                                #
+# 	~$ ./browse_quotes HU HUF hu-HU BUDA LOND 2017-05 2017-05                                                     #
 #                                                                                                                 #
 ###################################################################################################################
 
 
 # these arguments should be provided by the user of this bash script
 # register for apiKey here: http://portal.business.skyscanner.net/en-gb/accounts/login/
-
-country=$1
-currency=$2
-locale=$3
-originPlace=$4
-destinationPlace=$5
-outboundPartialDate=$6
-inboundPartialDate=$7
-apiKey=$8
+####      http://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash            #####
+country=${#1}
+currency=${#2}
+locale=${#3}
+originPlace=${#4}
+destinationPlace=${#5}
+outboundPartialDate=${#6}
+inboundPartialDate=${#7}
+apiKey=${#8}
 
 # it may work without apiKey argument in case of stored apiKey
-chrlenA=${#apiKey}
+chrlenA=${apiKey}
 case "$chrlenA" in
 	0) apiKey=$(grep -w "Insiprational_Flights" ~/Documents/creds.csv | cut -d "," -f3) ;;
 	esac 
@@ -33,9 +36,11 @@ case "$chrlenA" in
 # inboundPartialDate is optional, so it may work without inboundPartialDate argument in case of stored apiKey
 chrlenB=${#inboundPartialDate}
 case "$chrlenB" in
-	0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"?apiKey="$apiKey ;;
-	!0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"/"$inboundPartialDate"?apiKey="$apiKey
+	0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"?apiKey="$8 ;;
+	!0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"/"$inboundPartialDate"?apiKey="$8
 	esac 	
+
+echo $link_a
 
 # creating a data folder 
 if [ ! -d "./_data" ]; then
@@ -44,7 +49,7 @@ fi
 cd ./_data &&
 
 # downloading json file
-parallel --jobs=0 --keep-order --delay $(( $(( (RANDOM %10)+1 ))/100 )) --eta --gnu curl -sL -o browsequotes_act.json {} ::: $link_a &&
+curl -sL $link_a > browsequotes_act.json
 
 
 # creating Quotes level csv table from browsequotes_act.json
@@ -115,10 +120,9 @@ sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,
 
 
 # minden sorhoz hozzá kellene joinolni a valutanemet !!!!
-csvjoin -d, -u 1 -c --left tmp.csv currencies.csv > quotes.csv
+# csvjoin -d, -u 1 -c --left tmp.csv currencies.csv > quotes.csv
 
 cat quotes.csv | csvlook
-
 
 rm -f tmp.csv places.csv subplaces.csv carriers.csv currencies.csv
 
