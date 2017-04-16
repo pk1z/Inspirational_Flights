@@ -1,0 +1,144 @@
+#!/bin/bash
+
+###################################################################################################################
+#                                                                                                                 #
+# Returns the geospatial data of airports from skyscanner's database.                                             #
+#                                                                                                                 #
+# usage:                                                                                                          #
+# 	~$ ./spatial_data_downloader {apiKey}                                                                           #
+#                                                                                                                 #
+###################################################################################################################
+
+# apiKey argument should be provided by the user of this bash script
+apiKey=$1
+
+# it may work without apiKey argument in case of stored apiKey
+chrlenA=${#apiKey}
+case "$chrlenA" in
+	0) apiKey=$(grep -w "Insiprational_Flights" ~/Documents/creds.csv | cut -d "," -f3) ;;
+	esac 
+
+# creating a data folder 
+if [ ! -d "./_data" ]; 
+	then   mkdir ./_data; 
+fi
+cd ./_data &&
+
+# composing download links with arguments
+link_a="http://partners.api.skyscanner.net/apiservices/geo/v1.0?apiKey="$apiKey
+link_b="http://partners.api.skyscanner.net/apiservices/reference/v1.0/locales?apiKey="$apiKey
+link_c="http://partners.api.skyscanner.net/apiservices/reference/v1.0/currencies?apiKey="$apiKey
+
+# downloading json files
+parallel --jobs=0 --keep-order --delay $(( $(( (RANDOM %10)+1 ))/100 )) --eta --gnu curl -sL -o geo_catalog.json {} ::: $link_a
+parallel --jobs=0 --keep-order --delay $(( $(( (RANDOM %10)+1 ))/100 )) --eta --gnu curl -sL -o locales.json {} ::: $link_b
+parallel --jobs=0 --keep-order --delay $(( $(( (RANDOM %10)+1 ))/100 )) --eta --gnu curl -sL -o currencies.json {} ::: $link_c
+
+# creating continent level csv table from geo_catalog.json
+jq '.Continents[] | {ContinentId: .Id, 
+ContinentName: .Name,
+CountryId: .Countries[].Id
+} | join("|")' geo_catalog.json > tmp.csv && 
+awk '!v[$1]++' tmp.csv > continents.csv && 
+sed -i -e 's/|/"|"/g' -e 's/|/,/g' continents.csv &&  
+sed -i 1i'"ContinentId","ContinentName","CountryId"' continents.csv && 
+rm -f tmp.csv && 
+
+# creating country level csv table from geo_catalog.json
+jq '.Continents[].Countries[] | {
+CountryId: .Id, 
+CountryName: .Name, 
+CurrencyId: .CurrencyId, 
+LanguageId: .LanguageId
+} | join("|")' geo_catalog.json > tmp.csv && 
+awk '!v[$1]++' tmp.csv > countries.csv && 
+sed -i -e 's/|/"|"/g' -e 's/|/,/g' countries.csv && 
+sed -i 1i'"CountryId","CountryName","CurrencyId","LanguageId"' countries.csv && 
+rm -f tmp.csv && 
+
+# It is useless to create region level csv table from geo_catalog.json because cannot be matched to the other part of the data.
+
+# creating city level csv table from geo_catalog.json
+# geocodes are in one column, so they should be separated
+jq '.Continents[].Countries[].Cities[] | {
+CityId: .Id, 
+CityName: .Name, 
+CityLocation: .Location, 
+CityCountryId: .CountryId, 
+CityIataCode: .IataCode, 
+CitySingleAirportCity: (.SingleAirportCity | tostring)
+} | join("|")' geo_catalog.json > tmp.csv &&  
+awk '!v[$1]++' tmp.csv > cities.csv && 
+sed -i -e 's/|/"|"/g' -e 's/|/,/g' cities.csv &&  
+awk -F "," '{print $3}' cities.csv > tmpLon.csv && 
+sed -i 's/$/"/g' tmpLon.csv && 
+awk -F "," '{print $4}' cities.csv > tmpLat.csv &&  
+sed -i 's/ /\"/' tmpLat.csv &&  
+paste -d, cities.csv tmpLon.csv > tmp.csv && 
+paste -d, tmp.csv tmpLat.csv > cities.csv && 
+cut --delimiter="," -f3,4 --complement cities.csv > tmp.csv && 
+sed 1i'"CityId","CityName","CountryId","CityIataCode","CitySingleAirportCity","CityLon","CityLat"' tmp.csv > cities.csv &&  
+rm -f tmp.csv tmpLon.csv tmpLat.csv && 
+
+# creating airport level csv table from geo_catalog.json
+# geocodes are in one column, so they should be separated
+jq '.Continents[].Countries[].Cities[].Airports[] | {
+AirportId: .Id, 
+AirportName: .Name, 
+AirportLocation: .Location, 
+AirportCountryId: .CountryId, 
+AirportCityId: .CityId
+} | join("|")' geo_catalog.json > tmp.csv &&  
+awk '!v[$1]++' tmp.csv > airports.csv &&  
+sed -i -e 's/|/"|"/g' -e 's/|/,/g' airports.csv && 
+awk -F "," '{print $3}' airports.csv > tmpLon.csv && 
+sed -i 's/$/"/g' tmpLon.csv && 
+awk -F "," '{print $4}' airports.csv > tmpLat.csv && 
+sed -i 's/ /\"/' tmpLat.csv &&  
+paste -d, airports.csv tmpLon.csv > tmp.csv && 
+paste -d, tmp.csv tmpLat.csv > airports.csv && 
+cut --delimiter="," -f3,4 --complement airports.csv > tmp.csv && 
+sed 1i'"AirportId","AirportName","CountryId","CityId","AirportLon","AirportLat"' tmp.csv > airports.csv && 
+rm -f tmp.csv tmpLon.csv tmpLat.csv && 
+
+# creating csv table from locales.json
+jq '.Locales[] | {
+Code: .Code,
+Name: .Name
+} | join("|")' locales.json > tmp.csv &&  
+awk '!v[$1]++' tmp.csv > locales.csv &&  
+sed -i -e 's/|/"|"/g' -e 's/|/,/g' locales.csv &&  
+awk '{$3=","substr($1, 1, 3)"\""; $4=",\""toupper(substr($1, 5, 3)); print $1,$2,$3,$4}' locales.csv > tmp.csv &&
+sed -i 's/\" ,\"/\",\"/g' tmp.csv &&
+sed 1i'"LocaleCode","LocaleName","LanguageId","CountryId"' tmp.csv > locales.csv && 
+rm -f tmp.csv && 
+
+# creating csv table from currencies.json
+jq '.Currencies[] | {
+Code: .Code,
+Symbol: .Symbol,
+ThousandsSeparator: .ThousandsSeparator,
+DecimalSeparator: .DecimalSeparator,
+SymbolOnLeft: (.SymbolOnLeft | tostring),
+SpaceBetweenAmountAndSymbol: (.SpaceBetweenAmountAndSymbol | tostring),
+RoundingCoefficient: (.RoundingCoefficient | tostring),
+DecimalDigits: (.DecimalDigits | tostring)
+} | join("|")' currencies.json > tmp.csv &&  
+awk '!v[$1]++' tmp.csv > currencies.csv &&  
+sed -i -e 's/|/"|"/g' -e 's/|/,/g' currencies.csv &&  
+sed -i 1i'"CurrencyId","CurrencySymbol","CurrencyThousandsSeparator","CurrencyDecimalSeparator","CurrencySymbolOnLeft","CurrencySpaceBetweenAmountAndSymbol","CurrencyRoundingCoefficient","CurrencyDecimalDigits"' currencies.csv && 
+rm -f tmp.csv && 
+
+# let us join together the parts
+csvjoin -d, -u 1 -c "CityId, CityId" --left airports.csv cities.csv > geo_catalog.csv && 
+csvjoin -d, -u 1 -c "CountryId, CountryId" --left geo_catalog.csv countries.csv > tmp.csv && 
+csvjoin -d, -u 1 -c "CountryId, CountryId" --left tmp.csv continents.csv > geo_catalog.csv && 
+csvjoin -d, -u 1 -c "CurrencyId, CurrencyId" --left geo_catalog.csv currencies.csv > tmp.csv && 
+csvjoin -d, -u 1 -c "CountryId, CountryId" --left tmp.csv locales.csv > geo_catalog.csv && 
+
+# composing the columns into natural order
+awk -F"," -v OFS="," '{print $1, $2, $5, $6, $4, $7, $11, $12, $9, $10, $3, $13, $16, $17, $15, $14, $18, $19, $20, $21, $22, $23, $24, $25}' geo_catalog.csv > tmp.csv
+cat tmp.csv > geo_catalog.csv
+
+# removing intermediary files
+rm -f tmp.csv continents.csv countries.csv cities.csv airports.csv locales.csv currencies.csv
