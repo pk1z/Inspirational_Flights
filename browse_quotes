@@ -1,58 +1,88 @@
 #!/bin/bash
 
-# It is a chunk!! #
-
 ###################################################################################################################
 #                                                                                                                 #
 # Returns the cheapest quotes that meet this query. The prices come from skyscanner's cached prices resulting     #
 # from their users’ searches.                                                                                     #
+# Register for apikey here: http://portal.business.skyscanner.net/en-gb/accounts/login/                           #
 # usage:                                                                                                          #
-# 	~$ ./browse_quotes {country} {currency} {locale} {originPlace} {destinationPlace} {outboundPartialDate}       #
-#   {inboundPartialDate*} {apiKey}                                                                                #
-# 	~$ ./browse_quotes HU HUF hu-HU BUDA LOND 2017-05 2017-05                                                     #
+# 	~$ ./browse_quotes -co=HU -cu=HUF -lo=hu-HU -orp=BUDA -dep=LOND -oupd=2017-05 -inpd=2017-05 -apk={apikey}     #
 #                                                                                                                 #
 ###################################################################################################################
 
 
-# these arguments should be provided by the user of this bash script
-# register for apiKey here: http://portal.business.skyscanner.net/en-gb/accounts/login/
-####      http://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash            #####
-country=${#1}
-currency=${#2}
-locale=${#3}
-originPlace=${#4}
-destinationPlace=${#5}
-outboundPartialDate=${#6}
-inboundPartialDate=${#7}
-apiKey=${#8}
+# the following arguments should be provided by the user of this bash script
+for i in "$@"
+do
+case $i in
+    -co=*|--country=*)
+		Country="${i#*=}"
+		shift # past argument=value
+    ;;
+    -cu=*|--currency=*)
+		Currency="${i#*=}"
+		shift # past argument=value
+    ;;
+    -lo=*|--locale=*)
+		Locale="${i#*=}"
+		shift # past argument=value
+    ;;
+    -orp=*|--originplace=*)
+		OriginPlace="${i#*=}"
+		shift # past argument=value
+    ;;
+    -dep=*|--destinationplace=*)
+		DestinationPlace="${i#*=}"
+		shift # past argument=value
+    ;;
+    -oupd=*|--outboundpartialdate=*)
+		OutboundPartialDate="${i#*=}"
+		shift # past argument=value
+    ;;
+    -inpd=*|--inboundpartialdate=*)
+		InboundPartialDate="${i#*=}"
+		shift # past argument=value
+    ;;
+    -apk=*|--apikey=*)
+		ApiKey="${i#*=}"
+		shift # past argument=value
+    ;;
+    *)
+        # unknown option
+    ;;
+esac
+done
 
-# it may work without apiKey argument in case of stored apiKey
-chrlenA=${apiKey}
-case "$chrlenA" in
-	0) apiKey=$(grep -w "Insiprational_Flights" ~/Documents/creds.csv | cut -d "," -f3) ;;
+# composing download link 1st part with arguments
+link1="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"${Country}"/"${Currency}"/"${Locale}"/"${OriginPlace}"/"${DestinationPlace}"/"${OutboundPartialDate}
+
+# composing download link 2nd part with an arguments
+link2="/"${InboundPartialDate}
+length=${#link2}
+case "$length" in
+	1) link2="" ;;
 	esac 
 
-# composing download links with arguments
-# inboundPartialDate is optional, so it may work without inboundPartialDate argument in case of stored apiKey
-chrlenB=${#inboundPartialDate}
-case "$chrlenB" in
-	0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"?apiKey="$8 ;;
-	!0) link_a="http://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/"$country"/"$currency"/"$locale"/"$originPlace"/"$destinationPlace"/"$outboundPartialDate"/"$inboundPartialDate"?apiKey="$8
-	esac 	
+# composing download link 3rd part with an argument
+link3="?ApiKey="${ApiKey}
+length=${#link3}
+case "$length" in
+	8) link3="?ApiKey="$(grep -w "Insiprational_Flights" ~/Documents/creds.csv | cut -d "," -f3) ;;
+	esac 
 
-echo $link_a
+# composing download links with arguments from parts
+link=$link1$link2$link3	
 
 # creating a data folder 
 if [ ! -d "./_data" ]; then
   mkdir ./_data
 fi
-cd ./_data &&
+cd ./_data
 
 # downloading json file
-curl -sL $link_a > browsequotes_act.json
+curl -sL $link > quotes.json
 
-
-# creating Quotes level csv table from browsequotes_act.json
+# creating csv table from quotes.json
 jq '.Quotes[]? | {
 "QuoteId": (.QuoteId | tostring),
 "MinPrice": (.MinPrice | tostring),
@@ -66,65 +96,68 @@ jq '.Quotes[]? | {
 "InboundLegDestinationId": (.InboundLeg.DestinationId | tostring),
 "InboundLegDepartureDate": .InboundLeg.DepartureDate,
 "QuoteDateTime": .QuoteDateTime
-} | join("|")' browsequotes_act.json  > tmp.csv &&
-awk '!v[$1]++' tmp.csv > quotes.csv &&
-sed -i 's/|/"|"/g' quotes.csv &&
-sed -i 's/|/,/g' quotes.csv &&
-sed -i 1i'"QuoteId","MinPrice","Direct","OutboundLegCarrierIds","OutboundLegOriginId","OutboundLegDestinationId","OutboundLegDepartureDate","InboundLegCarrierIds","InboundLegOriginId","InboundLegDestinationId","InboundLegDepartureDate","QuoteDateTime"' quotes.csv &&
-rm -f tmp.csv &&
+} | join("|")' quotes.json  > tmp.csv
+awk '!v[$1]++' tmp.csv > quotes.csv
+sed -i 's/|/"|"/g' quotes.csv
+sed -i 's/|/,/g' quotes.csv
+sed -i 1i'"QuoteId","MinPrice","Direct","OutboundLegCarrierIds","OutboundLegOriginId","OutboundLegDestinationId","OutboundLegDepartureDate","InboundLegCarrierIds","InboundLegOriginId","InboundLegDestinationId","InboundLegDepartureDate","QuoteDateTime"' quotes.csv
+rm -f tmp.csv
 
-# creating Places level csv table from browsequotes_act.json
+# creating Places level csv table from quotes.json
 jq '.Places[]? | {
 "PlaceId": (.PlaceId | tostring),
 "PlaceIataCode": .IataCode,
 "PlaceName": .Name,
 "PlaceType": .Type
-} | join("|")' browsequotes_act.json  > tmp.csv &&
-awk '!v[$1]++' tmp.csv > places.csv &&
-sed -i 's/|/"|"/g' places.csv &&
-sed -i 's/|/,/g' places.csv &&
-sed -i 1i'"PlaceId","PlaceIataCode","PlaceName","PlaceType"' places.csv &&
-rm -f tmp.csv &&
+} | join("|")' quotes.json  > tmp.csv
+awk '!v[$1]++' tmp.csv > places.csv
+sed -i 's/|/"|"/g' places.csv
+sed -i 's/|/,/g' places.csv
+sed -i 1i'"PlaceId","PlaceIataCode","PlaceName","PlaceType"' places.csv
+rm -f tmp.csv
 
-# creating Carriers level csv table from browsequotes_act.json
+# creating Carriers level csv table from quotes.json
 jq '.Carriers[]? | {
 "CarrierId": (.CarrierId | tostring),
 "CarrierName": .Name
-} | join("|")' browsequotes_act.json  > tmp.csv &&
-awk '!v[$1]++' tmp.csv > carriers.csv &&
-sed -i 's/|/"|"/g' carriers.csv &&
-sed -i 's/|/,/g' carriers.csv &&
-sed -i 1i'"CarrierId","CarrierName"' carriers.csv &&
-rm -f tmp.csv &&
+} | join("|")' quotes.json  > tmp.csv
+awk '!v[$1]++' tmp.csv > carriers.csv
+sed -i 's/|/"|"/g' carriers.csv
+sed -i 's/|/,/g' carriers.csv
+sed -i 1i'"CarrierId","CarrierName"' carriers.csv
+rm -f tmp.csv
 
-# creating Currencies level csv table from browsequotes_act.json
-jq '.Currencies[]? | {
-"CurrencyCode": .Code,
-"CurrencySymbol": .Symbol
-} | join("|")' browsequotes_act.json  > tmp.csv &&
-awk '!v[$1]++' tmp.csv > currencies.csv &&
-sed -i 's/|/"|"/g' currencies.csv &&
-sed -i 's/|/,/g' currencies.csv &&
-sed -i 1i'"CurrencyCode","CurrencySymbol","CurrencyThousandsSeparator","CurrencyDecimalSeparator","CurrencySymbolOnLeft","CurrencySpaceBetweenAmountAndSymbol","CurrencyRoundingCoefficient","CurrencyDecimalDigits"' currencies.csv &&
-rm -f tmp.csv &&
+## creating Currencies level csv table from quotes.json
+#jq '.Currencies[]? | {
+#"CurrencyCode": .Code,
+#"CurrencySymbol": .Symbol
+#} | join("|")' quotes.json  > tmp.csv
+#awk '!v[$1]++' tmp.csv > currencies.csv
+#sed -i 's/|/"|"/g' currencies.csv
+#sed -i 's/|/,/g' currencies.csv
+#sed -i 1i'"CurrencyCode","CurrencySymbol","CurrencyThousandsSeparator","CurrencyDecimalSeparator","CurrencySymbolOnLeft","CurrencySpaceBetweenAmountAndSymbol","CurrencyRoundingCoefficient","CurrencyDecimalDigits"' currencies.csv
+#rm -f tmp.csv
 
 # let us join together the parts
-csvjoin -d, -u 1 -c "OutboundLegOriginId, PlaceId" --left quotes.csv places.csv > tmp.csv &&
-sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType/' tmp.csv &&
-csvjoin -d, -u 1 -c "InboundLegOriginId, PlaceId" --left tmp.csv places.csv > quotes.csv &&
-sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType/' quotes.csv &&
-csvjoin -d, -u 1 -c "OutboundLegCarrierIds, CarrierId" --left quotes.csv carriers.csv > tmp.csv &&
-sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType,OutboundCarrierName/' tmp.csv &&
-csvjoin -d, -u 1 -c "InboundLegCarrierIds, CarrierId" --left tmp.csv carriers.csv > quotes.csv &&
+csvjoin -d, -u 1 -c "OutboundLegOriginId, PlaceId" --left quotes.csv places.csv > tmp.csv
+sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType/' tmp.csv
+csvjoin -d, -u 1 -c "InboundLegOriginId, PlaceId" --left tmp.csv places.csv > quotes.csv
+sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType/' quotes.csv
+csvjoin -d, -u 1 -c "OutboundLegCarrierIds, CarrierId" --left quotes.csv carriers.csv > tmp.csv
+sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType,OutboundCarrierName/' tmp.csv
+csvjoin -d, -u 1 -c "InboundLegCarrierIds, CarrierId" --left tmp.csv carriers.csv > quotes.csv
 sed -i '1s/.*/QuoteId,MinPrice,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType,OutboundCarrierName,InboundCarrierName/' quotes.csv
 
+# adding currency column based on {currency} argument
+awk '{print $1, $2, cur, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20}' FS=, OFS=, cur="${Currency}" quotes.csv > tmp.csv
+sed -i '1s/.*/QuoteId,MinPrice,Currency,Direct,OutboundLegCarrierIds,OutboundLegOriginId,OutboundLegDestinationId,OutboundLegDepartureDate,InboundLegCarrierIds,InboundLegOriginId,InboundLegDestinationId,InboundLegDepartureDate,QuoteDateTime,OutboundPlaceIataCode,OutboundPlaceName,OutboundPlaceType,InboundPlaceIataCode,InboundPlaceName,InboundPlaceType,OutboundCarrierName,InboundCarrierName/' tmp.csv
 
-# minden sorhoz hozzá kellene joinolni a valutanemet !!!!
-# csvjoin -d, -u 1 -c --left tmp.csv currencies.csv > quotes.csv
+# adding direction and date to the name of the result file
+dt=$(date '+%Y%m%d_%H%M%S')
+mv tmp.csv quotes_${OriginPlace}_${DestinationPlace}_${dt}.csv
 
-cat quotes.csv | csvlook
+# let's show the results on screen
+# cat quotes.csv | csvlook
 
-rm -f tmp.csv places.csv subplaces.csv carriers.csv currencies.csv
-
-
-
+# removing intermediary files
+rm -f places.csv subplaces.csv carriers.csv quotes.json quotes.csv #currencies.csv
