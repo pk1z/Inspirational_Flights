@@ -10,3 +10,6 @@ Dependent tools should be installed prior to usage:
   ~$ sudo apt-get update
   ~$ sudo apt-get install parallel jq mawk sed coreutils python-pip r-base
   ~$ sudo pip install csvkit
+
+  O. Tange (2011): GNU Parallel - The Command-Line Power Tool,
+  ;login: The USENIX Magazine, February 2011:42-47.
