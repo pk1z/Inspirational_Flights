@@ -17,7 +17,7 @@
 # -apk={SkyScanner API key}                                                                                       #
 #                                                                                                                 #
 # usage:                                                                                                          #
-# 	~$ ./browse_routes -co=HU -cu=HUF -lo=hu-HU -orp=HU -dep=UK -oupd=2017-05 -inpd=2017-05 -apk={apikey}         #
+#   ~$ ./browse_routes -co=HU -cu=HUF -lo=hu-HU -orp=HU -dep=UK -oupd=2017-05 -inpd=2017-05 -apk={apikey}         #
 #                                                                                                                 #
 ###################################################################################################################
 
