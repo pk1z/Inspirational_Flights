@@ -26,7 +26,7 @@
 
 unwrap_routes()
 {
-	# creating csv table from routes.json
+	# creating csv table from Routes.json
 	infile=$1
 	outfile=$2
 	jq '.Routes[]? | {
@@ -47,7 +47,7 @@ unwrap_routes()
 
 unwrap_quotes()
 {
-    # creating csv table from routes.json
+    # creating csv table from Routes.json
     infile=$1
     outfile=$2
     jq '.Quotes[]? | {
@@ -66,7 +66,7 @@ unwrap_quotes()
 	} | join("¤")' $infile  > tmp1.csv
 	awk '!v[$1]++' tmp1.csv > $outfile
 	sed -i 's/¤/";"/g' $outfile
-	sed -i 1i'"QuoteId";"MinPrice";"Direct";"OutboundLegCarrierIds";"OutboundLegOriginId";"OutboundLegDestinationId";"OutboundLegDepartureDate";"InboundLegCarrierIds";"InboundLegOriginId";"InboundLegDestinationId";"InboundLegDepartureDate";"QuoteDateTime"' $outfile
+	sed -i 1i'"QuoteId";"MinPrice";"Direct";"OL_CarrierIds";"OL_OriginId";"OL_DestinationId";"OL_DepartureDate";"IL_CarrierIds";"IL_OriginId";"IL_DestinationId";"IL_DepartureDate";"QuoteDateTime"' $outfile
 	rm -f tmp1.csv
 	unset infile
 	unset outfile
@@ -74,7 +74,7 @@ unwrap_quotes()
 
 unwrap_places()
 {
-	# creating Places level csv table from routes.json
+	# creating Places level csv table from Routes.json
 	infile=$1
     outfile=$2
 	jq '.Places[]? | {
@@ -93,7 +93,7 @@ unwrap_places()
 
 unwrap_carriers()
 {
-	# creating Carriers level csv table from routes.json
+	# creating Carriers level csv table from Routes.json
 	infile=$1
     outfile=$2
 	jq '.Carriers[]? | {
@@ -110,7 +110,7 @@ unwrap_carriers()
 
 unwrap_currencies()
 {
-	# creating Currencies level csv table from routes.json
+	# creating Currencies level csv table from Routes.json
 	infile=$1
     outfile=$2
 	jq '.Currencies[]? | {
@@ -222,35 +222,36 @@ unwrap_carriers routes.json carriers.csv &
 # waiting for concurent processes to be finished (denoted with & ampersand)
 wait
 
-# let us join Quotes and OutboundLegOrigin 
-csvjoin --delimiter ';' -u 1 -c "OutboundLegOriginId, PlaceId" --left quotes.csv places.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > tmp.csv
+# let us join quotes and OutboundLeg_Origin 
+csvjoin --delimiter ';' -u 1 -c "OL_OriginId, PlaceId" --left quotes.csv places.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > tmp.csv
 
 # renaming columns
-sed -i '1s/.*/QuoteId;MinPrice;Direct;OutboundLegCarrierIds;OutboundLegOriginId;OutboundLegDestinationId;OutboundLegDepartureDate;InboundLegCarrierIds;InboundLegOriginId;InboundLegDestinationId;InboundLegDepartureDate;QuoteDateTime;OLO_IataCode;OLO_Name;OLO_Type/' tmp.csv
+sed -i '1s/.*/QuoteId;MinPrice;Direct;OL_CarrierIds;OL_OriginId;OL_DestinationId;OL_DepartureDate;IL_CarrierIds;IL_OriginId;IL_DestinationId;IL_DepartureDate;QuoteDateTime;OL_OriginIataCode;OL_OriginName;OL_OriginType/' tmp.csv
 
-# let us join Quotes and OutboundLegDestination
-csvjoin --delimiter ';' -u 1 -c "OutboundLegDestinationId, PlaceId" --left tmp.csv places.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > quotes.csv
-
+# let us join quotes and OutboundLeg_Destination
+csvjoin --delimiter ';' -u 1 -c "OL_DestinationId, PlaceId" --left tmp.csv places.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > quotes.csv
 # renaming columns
-sed -i '1s/.*/QuoteId;MinPrice;Direct;OutboundLegCarrierIds;OutboundLegOriginId;OutboundLegDestinationId;OutboundLegDepartureDate;InboundLegCarrierIds;InboundLegOriginId;InboundLegDestinationId;InboundLegDepartureDate;QuoteDateTime;OLO_IataCode;OLO_Name;OLO_Type;OLD_IataCode;OLD_Name;OLD_Type/' quotes.csv
+sed -i '1s/.*/QuoteId;MinPrice;Direct;OL_CarrierIds;OL_OriginId;OL_DestinationId;OL_DepartureDate;IL_CarrierIds;IL_OriginId;IL_DestinationId;IL_DepartureDate;QuoteDateTime;OL_OriginIataCode;OL_OriginName;OL_OriginType;OL_DestinationIataCode;OL_DestinationName;OL_DestinationType/' quotes.csv
 
-# let us join Quotes and InboundLegOriginId
-csvjoin --delimiter ';' -u 1 -c "InboundLegOriginId, PlaceId" --left quotes.csv places.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > tmp.csv
-
+# let us join quotes and InboundLeg_OriginId
+csvjoin --delimiter ';' -u 1 -c "IL_OriginId, PlaceId" --left quotes.csv places.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > tmp.csv
 # renaming columns
-sed -i '1s/.*/QuoteId;MinPrice;Direct;OutboundLegCarrierIds;OutboundLegOriginId;OutboundLegDestinationId;OutboundLegDepartureDate;InboundLegCarrierIds;InboundLegOriginId;InboundLegDestinationId;InboundLegDepartureDate;QuoteDateTime;OLO_IataCode;OLO_Name;OLO_Type;OLD_IataCode;OLD_Name;OLD_Type;ILO_IataCode;ILO_Name;ILO_Type/' tmp.csv
+sed -i '1s/.*/QuoteId;MinPrice;Direct;OL_CarrierIds;OL_OriginId;OL_DestinationId;OL_DepartureDate;IL_CarrierIds;IL_OriginId;IL_DestinationId;IL_DepartureDate;QuoteDateTime;OL_OriginIataCode;OL_OriginName;OL_OriginType;OL_DestinationIataCode;OL_DestinationName;OL_DestinationType;IL_OriginIataCode;IL_OriginName;IL_OriginType/' tmp.csv
 
-# let us join Quotes and OutboundLegCarrier
-csvjoin --delimiter ';' -u 1 -c "OutboundLegCarrierIds, CarrierId" --left tmp.csv carriers.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > quotes.csv
-
+# let us join quotes and InboundLeg_Destination
+csvjoin --delimiter ';' -u 1 -c "IL_DestinationId, PlaceId" --left tmp.csv places.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > quotes.csv
 # renaming columns
-sed -i '1s/.*/QuoteId;MinPrice;Direct;OutboundLegCarrierIds;OutboundLegOriginId;OutboundLegDestinationId;OutboundLegDepartureDate;InboundLegCarrierIds;InboundLegOriginId;InboundLegDestinationId;InboundLegDepartureDate;QuoteDateTime;OLO_IataCode;OLO_Name;OLO_Type;OLD_IataCode;OLD_Name;OLD_Type;ILO_IataCode;ILO_Name;ILO_Type;OutboundLegCarrierName/' quotes.csv
+sed -i '1s/.*/QuoteId;MinPrice;Direct;OL_CarrierIds;OL_OriginId;OL_DestinationId;OL_DepartureDate;IL_CarrierIds;IL_OriginId;IL_DestinationId;IL_DepartureDate;QuoteDateTime;OL_OriginIataCode;OL_OriginName;OL_OriginType;OL_DestinationIataCode;OL_DestinationName;OL_DestinationType;IL_OriginIataCode;IL_OriginName;IL_OriginType;IL_DestinationIataCode;IL_DestinationName;IL_DestinationType/' quotes.csv  
 
-# let us join Quotes and InboundLegCarrier
-csvjoin --delimiter ';' -u 1 -c "InboundLegCarrierIds, CarrierId" --left quotes.csv carriers.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > tmp.csv
-
+# let us join quotes and OutboundLeg_Carrier
+csvjoin --delimiter ';' -u 1 -c "OL_CarrierIds, CarrierId" --left quotes.csv carriers.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > tmp.csv
 # renaming columns
-sed -i '1s/.*/QuoteId;MinPrice;Direct;OutboundLegCarrierIds;OutboundLegOriginId;OutboundLegDestinationId;OutboundLegDepartureDate;InboundLegCarrierIds;InboundLegOriginId;InboundLegDestinationId;InboundLegDepartureDate;QuoteDateTime;OLO_IataCode;OLO_Name;OLO_Type;OLD_IataCode;OLD_Name;OLD_Type;ILO_IataCode;ILO_Name;ILO_Type;OutboundLegCarrierName;InboundLegCarrierName/' tmp.csv
+sed -i '1s/.*/QuoteId;MinPrice;Direct;OL_CarrierIds;OL_OriginId;OL_DestinationId;OL_DepartureDate;IL_CarrierIds;IL_OriginId;IL_DestinationId;IL_DepartureDate;QuoteDateTime;OL_OriginIataCode;OL_OriginName;OL_OriginType;OL_DestinationIataCode;OL_DestinationName;OL_DestinationType;IL_OriginIataCode;IL_OriginName;IL_OriginType;IL_DestinationIataCode;IL_DestinationName;IL_DestinationType;OL_CarrierName/' tmp.csv
+
+# let us join quotes and InboundLeg_Carrier
+csvjoin --delimiter ';' -u 1 -c "IL_CarrierIds, CarrierId" --left tmp.csv carriers.csv | sed -r 's/[^,]+/"&"/g' | sed 's/\,/;/g' > quotes.csv
+# renaming columns
+sed -i '1s/.*/QuoteId;MinPrice;Direct;OL_CarrierIds;OL_OriginId;OL_DestinationId;OL_DepartureDate;IL_CarrierIds;IL_OriginId;IL_DestinationId;IL_DepartureDate;QuoteDateTime;OL_OriginIataCode;OL_OriginName;OL_OriginType;OL_DestinationIataCode;OL_DestinationName;OL_DestinationType;IL_OriginIataCode;IL_OriginName;IL_OriginType;IL_DestinationIataCode;IL_DestinationName;IL_DestinationType;OL_CarrierName;IL_CarrierName/' quotes.csv
 
 # creating new output filename by adding direction and date to the name of the result file
 dt=$(date '+%Y%m%d_%H%M%S')
@@ -263,10 +264,10 @@ CurrencyThousandsSeparator=$(awk -F';' -v line=2 -v field=3 'NR==line{print $fie
 CurrencyDecimalSeparator=$(awk -F';' -v line=2 -v field=4 'NR==line{print $field}' currencies.csv)
 
 # adding currency related columns
-awk -F';' -v OFS=';' -v Sym="${Symbol}" -v Cod="${Code}" -v Tho="${CurrencyThousandsSeparator}" -v Dec="${CurrencyDecimalSeparator}" '{print $1, $2, Sym, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, Cod, Tho, Dec}' quotes.csv > $outfile
+awk -F';' -v OFS=';' -v Sym="${Symbol}" -v Cod="${Code}" -v Tho="${CurrencyThousandsSeparator}" -v Dec="${CurrencyDecimalSeparator}" '{print $1, $2, Sym, $3, $12, $4, $25, $14, $15, $5, $13, $7, $6, $17, $18, $16, $8, $26, $20, $21, $9, $19, $11, $10, $22, $23, $24, Cod, Tho, Dec}' quotes.csv > $outfile
 
 # renaming columns
-sed -i '1s/.*/QuoteId;MinPrice;Symbol;Direct;OutboundLegCarrierIds;OutboundLegOriginId;OutboundLegDestinationId;OutboundLegDepartureDate;InboundLegCarrierIds;InboundLegOriginId;InboundLegDestinationId;InboundLegDepartureDate;QuoteDateTime;OLO_IataCode;OLO_Name;OLO_Type;OLD_IataCode;OLD_Name;OLD_Type;ILO_IataCode;ILO_Name;ILO_Type;OutboundLegCarrierName;InboundLegCarrierName;Code;ThousandsSeparator;DecimalSeparator/' $outfile
+sed -i '1s/.*/QuoteId;MinPrice;Symbol;Direct;QuoteDateTime;OL_CarrierId;OL_CarrierName;OL_OriginName;OL_OriginType;OL_OriginId;OL_OriginIataCode;OL_DepartureDate;OL_DestinationId;OL_DestinationName;OL_DestinationType;OL_DestinationIataCode;IL_CarrierId;IL_CarrierName;IL_OriginName;IL_OriginType;IL_OriginId;IL_OriginIataCode;IL_DepartureDate;IL_DestinationId;IL_DestinationIataCode;IL_DestinationName;IL_DestinationType;Code;ThousandsSeparator;DecimalSeparator/' $outfile
 
 # let's show the results on screen
 # cat $outfile | csvlook
