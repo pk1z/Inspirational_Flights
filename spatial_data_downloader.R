@@ -150,5 +150,3 @@ fwrite(all,
        file = file_out,
        nThread = getDTthreads())
 rm(list = c('wd', 'file_out'))
-
-# Missing data probably can be obtained from: https://www.world-airport-codes.com/
