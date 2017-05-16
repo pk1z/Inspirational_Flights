@@ -52,7 +52,6 @@ if (length(args) < 10) {
       stop('Too many arguments are supplied.', call. = FALSE)
     }
 }
-
 ######################################## SCRIPT ##########################################################
 
 
@@ -77,10 +76,9 @@ if (nchar(link3) == 8) {
 link <- paste(link1, link2, link3, sep = '')
 
 # downloading json file
-tmp <- read_json(link, simplifyVector = TRUE)
+tmp <- jsonlite::fromJSON(link, simplifyDataFrame = TRUE)
 
-
-# extracting Quotes table form json
+# extracting Quotes table from json
 Quotes <- data.table(flatten(tmp$Quotes, recursive = TRUE))
 
 # replacing empty cells with NA
@@ -94,30 +92,31 @@ colnames(Quotes) <- gsub('Ids', 'Id',
                                         gsub('\\.', '_', 
                                              colnames(Quotes))))))
 
-# reformatting some columns  of Quotes table
+# refromatting some columns  of Quotes table
 Quotes[, ':=' (OL_CarrierId = as.integer(as.character(OL_CarrierId)),
                IL_CarrierId = as.integer(as.character(IL_CarrierId)),
-               QuoteDateTime = as.POSIXct(QuoteDateTime, tz = '', format = '%Y-%m-%dT%H:%M:%S'),
-               OL_DepartureDate = as.POSIXct(OL_DepartureDate, tz = '', format = '%Y-%m-%dT%H:%M:%S'),
-               IL_DepartureDate = as.POSIXct(IL_DepartureDate, tz = '', format = '%Y-%m-%dT%H:%M:%S'))]
+               QuoteDateTime = as.POSIXct(QuoteDateTime, tz = '', fromat = '%Y-%m-%dT%H:%M:%S'),
+               OL_DepartureDate = as.POSIXct(OL_DepartureDate, tz = '', fromat = '%Y-%m-%dT%H:%M:%S'),
+               IL_DepartureDate = as.POSIXct(IL_DepartureDate, tz = '', fromat = '%Y-%m-%dT%H:%M:%S'))]
 
 
-# extracting Places table form json
+# extracting Places table from json
 Places <- data.table(flatten(tmp$Places, recursive = TRUE))
 
 # replacing empty cells with NA
 Places[Places == ''] <- NA
 
 
-# extracting Carriers table form json
+# extracting Carriers table from json
 Carriers <- data.table(flatten(tmp$Carriers, recursive = TRUE))
 
 # replacing empty cells with NA
 Carriers[Carriers == ''] <- NA
 
 
-# extracting Currencies table form json
+# extracting Currencies table from json
 Currencies <- data.table(flatten(tmp$Currencies, recursive = TRUE))
+colnames(Currencies) <- paste('Currency', colnames(Currencies), sep = '')
 
 # replacing empty cells with NA
 Currencies[Currencies == ''] <- NA
@@ -194,7 +193,7 @@ rm(Carriers)
 
 
 # adding Currency details
-Quotes <- tryCatch(do.call(cbind, list(Quotes, Currencies[, .(Code, Symbol, ThousandsSeparator, DecimalSeparator)])), message = function(e) e)
+Quotes <- tryCatch(do.call(cbind, list(Quotes, Currencies[, .(CurrencyCode, CurrencySymbol, CurrencyThousandsSeparator, CurrencyDecimalSeparator)])), message = function(e) e)
 
 
 # dropping unnecessary table
@@ -202,12 +201,12 @@ rm(Currencies)
 
 
 # reordering columns & rows
-setcolorder(Quotes, c('QuoteId', 'MinPrice', 'Symbol', 'Direct', 'QuoteDateTime', 
+setcolorder(Quotes, c('QuoteId', 'MinPrice', 'CurrencySymbol', 'Direct', 'QuoteDateTime', 
                       'OL_CarrierId', 'OL_CarrierName', 'OL_OriginName', 'OL_OriginType', 'OL_OriginId', 'OL_OriginIataCode', 'OL_DepartureDate', 
                       'OL_DestinationId', 'OL_DestinationName', 'OL_DestinationType', 'OL_DestinationIataCode', 
                       'IL_CarrierId', 'IL_CarrierName', 'IL_OriginName', 'IL_OriginType', 'IL_OriginId', 'IL_OriginIataCode', 'IL_DepartureDate', 
                       'IL_DestinationId', 'IL_DestinationName', 'IL_DestinationType', 'IL_DestinationIataCode', 
-                      'Code', 'ThousandsSeparator',  'DecimalSeparator'))
+                      'CurrencyCode', 'CurrencyThousandsSeparator',  'CurrencyDecimalSeparator'))
 Quotes <- tryCatch(Quotes[order(QuoteId)], message = function(e) e)
 
 

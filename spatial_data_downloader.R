@@ -76,7 +76,7 @@ regions <- rbindlist(countries$Regions, fill = TRUE)
 setnames(regions, 'Id', 'RegionId')
 setnames(regions, 'Name', 'RegionName')
 
-# creating cities table & formatting header
+# creating cities table & formatting headercurrencies
 cities <- rbindlist(countries$Cities, fill=TRUE)
 cities[is.na(CountryId), CountryId := 'NA']
 setnames(cities, 'Id', 'CityId')
@@ -148,5 +148,8 @@ setcolorder(all, order(colnames(all[, ])))
 file_out = paste(wd, '/geo_catalog.csv', sep = '')
 fwrite(all,
        file = file_out,
-       nThread = getDTthreads())
+       quote = TRUE,
+       sep = ';',
+       nThread = getDTthreads(),
+       showProgress = TRUE)
 rm(list = c('wd', 'file_out'))
